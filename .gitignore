@@ -1,0 +1,18 @@
+node_modules
+.env
+.env.local
+.DS_Store
+npm-debug.log
+
+# Next.js
+frontend/.next
+frontend/out
+
+# Backend uploads
+backend/uploads
+
+# Prisma
+backend/prisma/migrations
+
+# Logs
+*.log
