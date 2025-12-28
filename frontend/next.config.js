@@ -13,6 +13,11 @@ const nextConfig = {
         hostname: "backend",
         port: "4000",
         pathname: "/uploads/**"
+      },
+      {
+        protocol: "https",
+        hostname: "rupantorii-system.onrender.com",
+        pathname: "/uploads/**"
       }
     ]
   }
