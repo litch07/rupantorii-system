@@ -1,7 +1,17 @@
 {
   "name": "rupantorii-backend",
   "version": "1.0.0",
+  "description": "Rupantorii API server for products, orders, and admin operations.",
   "private": true,
+  "license": "MIT",
+  "author": "Rupantorii",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/litch07/rupantorii-system"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",

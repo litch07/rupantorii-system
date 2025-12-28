@@ -1,6 +1,9 @@
 node_modules
 .env
 .env.local
+.env.development
+.env.production
+.env.test
 .DS_Store
 npm-debug.log
 
@@ -10,9 +13,6 @@ frontend/out
 
 # Backend uploads
 backend/uploads
-
-# Prisma
-backend/prisma/migrations
 
 # Logs
 *.log
