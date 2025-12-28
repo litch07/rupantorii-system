@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../../../lib/api";
 import Button from "../../../../components/common/Button";
+import { getErrorMessage } from "../../../../lib/helpers";
 
 const emptyVariant = { sku: "", size: "", color: "", material: "", price: "", stock: "" };
 
 export default function NewProductClient() {
   const router = useRouter();
   const [categories, setCategories] = useState([]);
+  const [images, setImages] = useState([]);
+  const [imageAlt, setImageAlt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -26,8 +31,13 @@ export default function NewProductClient() {
 
   useEffect(() => {
     const load = async () => {
-      const response = await api.get("/api/admin/categories");
-      setCategories(response.data || []);
+      try {
+        const response = await api.get("/api/admin/categories");
+        setCategories(response.data || []);
+        setErrorMessage("");
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error, "Unable to load categories."));
+      }
     };
     load();
   }, []);
@@ -53,6 +63,8 @@ export default function NewProductClient() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
     const payload = {
       ...form,
       basePrice: Number(form.basePrice),
@@ -71,18 +83,48 @@ export default function NewProductClient() {
         }))
     };
 
-    await api.post("/api/admin/products", payload);
-    router.push("/admin/products");
+    try {
+      const response = await api.post("/api/admin/products", payload);
+      const productId = response.data?.id;
+
+      if (productId && images.length > 0) {
+        const formData = new FormData();
+        images.forEach((file) => formData.append("images", file));
+        if (imageAlt.trim()) {
+          formData.append("alt", imageAlt.trim());
+        }
+        await api.post(`/api/admin/products/${productId}/images`, formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      }
+
+      router.push(productId ? `/admin/products/${productId}/edit` : "/admin/products");
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Unable to create product."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl text-ink">Add Product</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
+        {errorMessage ? (
+          <div className="rounded-2xl border border-rose/30 bg-rose/10 px-4 py-3 text-sm text-rose">
+            {errorMessage}
+          </div>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-2 text-sm text-pine">
             <span className="uppercase tracking-[0.2em]">Name</span>
-            <input name="name" value={form.name} onChange={handleChange} className="rounded-2xl border border-mist bg-white/80 px-4 py-3" />
+            <input
+              name="name"
+              required
+              value={form.name}
+              onChange={handleChange}
+              className="rounded-2xl border border-mist bg-white/80 px-4 py-3"
+            />
           </label>
           <label className="flex flex-col gap-2 text-sm text-pine">
             <span className="uppercase tracking-[0.2em]">Brand</span>
@@ -90,7 +132,13 @@ export default function NewProductClient() {
           </label>
           <label className="flex flex-col gap-2 text-sm text-pine">
             <span className="uppercase tracking-[0.2em]">Category</span>
-            <select name="categoryId" value={form.categoryId} onChange={handleChange} className="rounded-2xl border border-mist bg-white/80 px-4 py-3">
+            <select
+              name="categoryId"
+              required
+              value={form.categoryId}
+              onChange={handleChange}
+              className="rounded-2xl border border-mist bg-white/80 px-4 py-3"
+            >
               <option value="">Select category</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -101,6 +149,7 @@ export default function NewProductClient() {
             <span className="uppercase tracking-[0.2em]">Base Price</span>
             <input
               name="basePrice"
+              required
               value={form.basePrice}
               onChange={handleChange}
               inputMode="decimal"
@@ -168,8 +217,34 @@ export default function NewProductClient() {
         </div>
         <label className="flex flex-col gap-2 text-sm text-pine">
           <span className="uppercase tracking-[0.2em]">Description</span>
-          <textarea name="description" value={form.description} onChange={handleChange} className="min-h-[140px] rounded-2xl border border-mist bg-white/80 px-4 py-3" />
+          <textarea
+            name="description"
+            required
+            value={form.description}
+            onChange={handleChange}
+            className="min-h-[140px] rounded-2xl border border-mist bg-white/80 px-4 py-3"
+          />
         </label>
+
+        <div className="space-y-3 rounded-3xl border border-mist bg-white/60 p-4">
+          <h2 className="text-xl text-ink">Product Images</h2>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(event) => setImages(Array.from(event.target.files || []))}
+            className="block w-full text-sm text-pine file:mr-4 file:rounded-full file:border-0 file:bg-rose/20 file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.2em] file:text-rose"
+          />
+          <input
+            placeholder="Optional image alt text"
+            value={imageAlt}
+            onChange={(event) => setImageAlt(event.target.value)}
+            className="w-full rounded-2xl border border-mist bg-white/80 px-4 py-3 text-sm"
+          />
+          <p className="text-xs text-pine">
+            You can also upload or replace images later from the edit page.
+          </p>
+        </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -198,7 +273,9 @@ export default function NewProductClient() {
           ))}
         </div>
 
-        <Button type="submit">Create Product</Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Creating..." : "Create Product"}
+        </Button>
       </form>
     </div>
   );
