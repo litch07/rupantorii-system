@@ -39,9 +39,8 @@ export default async function ProductDetailsPage({ params }) {
   }
 
   const image = product.images?.find((img) => img.isPrimary) || product.images?.[0];
-  const imageUrl = image
-    ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}${image.url}`
-    : null;
+  const apiUrl = getServerApiUrl();
+  const imageUrl = image ? `${apiUrl}${image.url}` : null;
 
   const productData = {
     ...product,
@@ -52,7 +51,13 @@ export default async function ProductDetailsPage({ params }) {
     <section className="section-pad grid gap-10 py-12 lg:grid-cols-[0.9fr_1.1fr]">
       <div className="glass-card relative min-h-[360px] overflow-hidden rounded-[40px]">
         {imageUrl ? (
-          <Image src={imageUrl} alt={image?.alt || product.name} fill className="object-cover" />
+          <Image
+            src={imageUrl}
+            alt={image?.alt || product.name}
+            fill
+            sizes="(min-width: 1024px) 45vw, 100vw"
+            className="object-cover"
+          />
         ) : null}
       </div>
       <ProductDetailsClient product={productData} />

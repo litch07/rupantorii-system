@@ -20,7 +20,12 @@ export function AuthProvider({ children }) {
     const storedUser = localStorage.getItem(USER_KEY);
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.role === "admin") {
+          setUser(parsed);
+        } else {
+          setUser(null);
+        }
       } catch {
         setUser(null);
       }
@@ -50,7 +55,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, login, logout, isAuthenticated: !!user, loading }),
+    () => ({ user, login, logout, isAuthenticated: user?.role === "admin", loading }),
     [user, login, logout, loading]
   );
 

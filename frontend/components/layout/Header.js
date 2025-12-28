@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "../../contexts/CartContext";
+import { useCustomerAuth } from "../../contexts/CustomerAuthContext";
 
 export default function Header() {
   const { totalItems } = useCart();
+  const { isAuthenticated, user } = useCustomerAuth();
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
 
@@ -35,7 +37,9 @@ export default function Header() {
           <Link href="/cart" className="hover:text-rose">
             Cart ({totalItems})
           </Link>
-          <Link href="/admin/login" className="hover:text-rose">Admin</Link>
+          <Link href={isAuthenticated ? "/account" : "/account/login"} className="hover:text-rose">
+            {isAuthenticated ? `Account (${user?.name || "Active"})` : "Account"}
+          </Link>
         </nav>
       </div>
     </header>

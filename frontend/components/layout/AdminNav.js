@@ -7,7 +7,10 @@ import { useAuth } from "../../contexts/AuthContext";
 const links = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/products", label: "Products" },
-  { href: "/admin/orders", label: "Orders" }
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/questions", label: "Questions" },
+  { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/reports", label: "Reports" }
 ];
 
 export default function AdminNav() {

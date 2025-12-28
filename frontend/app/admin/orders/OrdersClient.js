@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import api from "../../../lib/api";
-import { formatPrice } from "../../../lib/helpers";
+import { formatPrice, getErrorMessage } from "../../../lib/helpers";
 
 const STATUS_FILTERS = ["pending", "confirmed", "shipped", "delivered", "cancelled", "returned", "all"];
 
@@ -20,38 +20,6 @@ function formatStatusLabel(status) {
     .join(" ");
 }
 
-function formatPricePlain(value) {
-  const amount = typeof value === "string" ? Number(value) : value;
-  const formatted = new Intl.NumberFormat("en-BD", { maximumFractionDigits: 0 }).format(amount || 0);
-  return `BDT ${formatted}`;
-}
-
-function buildReceiptText(order) {
-  const lines = [
-    "Rupantorii Order Receipt",
-    `Order Number: ${order.orderNumber}`,
-    `Order ID: ${order.id}`,
-    `Status: ${formatStatusLabel(order.status)}`,
-    `Date: ${formatDate(order.createdAt)}`,
-    "",
-    `Customer: ${order.customerName}`,
-    `Phone: ${order.customerPhone}`,
-    `Address: ${order.address}, ${order.city}`,
-    order.notes ? `Notes: ${order.notes}` : "",
-    order.cancelReason ? `Cancel Reason: ${order.cancelReason}` : "",
-    "",
-    "Items:"
-  ].filter((line) => line !== "");
-
-  order.items?.forEach((item) => {
-    const sku = item.variant?.sku ? ` (${item.variant.sku})` : "";
-    lines.push(`- ${item.product.name}${sku} x ${item.quantity} @ ${formatPricePlain(item.price)}`);
-  });
-
-  lines.push("", `Total: ${formatPricePlain(order.totalAmount)}`);
-  return `${lines.join("\n")}\n`;
-}
-
 export default function OrdersClient() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
@@ -60,6 +28,7 @@ export default function OrdersClient() {
   const [cancelReasons, setCancelReasons] = useState({});
   const [cancelError, setCancelError] = useState({});
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -74,9 +43,15 @@ export default function OrdersClient() {
 
   const loadOrders = async () => {
     setLoading(true);
-    const response = await api.get(`/api/admin/orders${queryString}`);
-    setOrders(response.data.data || []);
-    setLoading(false);
+    try {
+      const response = await api.get(`/api/admin/orders${queryString}`);
+      setOrders(response.data.data || []);
+      setActionError("");
+    } catch (error) {
+      setActionError(getErrorMessage(error, "Unable to load orders."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -87,14 +62,19 @@ export default function OrdersClient() {
   }, [queryString]);
 
   const updateStatus = async (id, status, cancelReason) => {
-    const payload = { status };
-    if (cancelReason) {
-      payload.cancelReason = cancelReason;
+    try {
+      const payload = { status };
+      if (cancelReason) {
+        payload.cancelReason = cancelReason;
+      }
+      await api.patch(`/api/admin/orders/${id}/status`, payload);
+      setExpanded({ id: null, view: "details" });
+      setCancelError((prev) => ({ ...prev, [id]: "" }));
+      setActionError("");
+      loadOrders();
+    } catch (error) {
+      setActionError(getErrorMessage(error, "Unable to update order status."));
     }
-    await api.patch(`/api/admin/orders/${id}/status`, payload);
-    setExpanded({ id: null, view: "details" });
-    setCancelError((prev) => ({ ...prev, [id]: "" }));
-    loadOrders();
   };
 
   const toggleView = (orderId, view) => {
@@ -115,17 +95,24 @@ export default function OrdersClient() {
     await updateStatus(orderId, "cancelled", reason);
   };
 
-  const handleDownloadReceipt = (order) => {
-    const text = buildReceiptText(order);
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `order-${order.orderNumber}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+  const handleDownloadReceipt = async (order) => {
+    try {
+      const response = await api.get(`/api/admin/orders/${order.id}/receipt`, {
+        responseType: "blob"
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `order-${order.orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setActionError("");
+    } catch (error) {
+      setActionError(getErrorMessage(error, "Unable to download receipt."));
+    }
   };
 
   const renderActions = (order) => {
@@ -225,18 +212,6 @@ export default function OrdersClient() {
       );
     }
 
-    if (order.status === "cancelled") {
-      actions.push(
-        <button
-          key="reopen"
-          className="btn-outline"
-          onClick={() => updateStatus(order.id, "pending")}
-        >
-          Reopen
-        </button>
-      );
-    }
-
     return actions;
   };
 
@@ -268,6 +243,7 @@ export default function OrdersClient() {
           </button>
         </div>
       </div>
+      {actionError ? <p className="text-sm text-rose">{actionError}</p> : null}
 
       <div className="overflow-hidden rounded-3xl border border-mist bg-white/80">
         <table className="w-full text-left text-sm">

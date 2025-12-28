@@ -17,6 +17,9 @@ export default function EditProductClient({ productId }) {
     categoryId: "",
     brand: "",
     basePrice: "",
+    discountType: "none",
+    discountValue: "",
+    isFeatured: false,
     stock: "",
     status: "active"
   });
@@ -38,6 +41,9 @@ export default function EditProductClient({ productId }) {
         categoryId: productRes.data.categoryId,
         brand: productRes.data.brand || "",
         basePrice: productRes.data.basePrice,
+        discountType: productRes.data.discountType || "none",
+        discountValue: productRes.data.discountValue || "",
+        isFeatured: Boolean(productRes.data.isFeatured),
         stock: productRes.data.stock ?? 0,
         status: productRes.data.status
       });
@@ -48,7 +54,8 @@ export default function EditProductClient({ productId }) {
   }, [productId]);
 
   const handleChange = (event) => {
-    setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+    const { name, value, type, checked } = event.target;
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const updateVariant = (index, field, value) => {
@@ -71,6 +78,8 @@ export default function EditProductClient({ productId }) {
       ...form,
       basePrice: Number(form.basePrice),
       stock: Number(form.stock || 0),
+      discountType: form.discountType === "none" ? null : form.discountType,
+      discountValue: form.discountType === "none" || !form.discountValue ? null : Number(form.discountValue),
       variants: variants
         .filter((variant) => variant.sku)
         .map((variant) => ({
@@ -151,6 +160,32 @@ export default function EditProductClient({ productId }) {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm text-pine">
+            <span className="uppercase tracking-[0.2em]">Discount Type</span>
+            <select
+              name="discountType"
+              value={form.discountType}
+              onChange={handleChange}
+              className="rounded-2xl border border-mist bg-white/80 px-4 py-3"
+            >
+              <option value="none">No discount</option>
+              <option value="percentage">Percentage (%)</option>
+              <option value="amount">Flat amount (BDT)</option>
+            </select>
+          </label>
+          {form.discountType !== "none" ? (
+            <label className="flex flex-col gap-2 text-sm text-pine">
+              <span className="uppercase tracking-[0.2em]">Discount Value</span>
+              <input
+                name="discountValue"
+                value={form.discountValue}
+                onChange={handleChange}
+                inputMode="decimal"
+                placeholder={form.discountType === "percentage" ? "e.g. 15" : "e.g. 300"}
+                className="rounded-2xl border border-mist bg-white/80 px-4 py-3"
+              />
+            </label>
+          ) : null}
+          <label className="flex flex-col gap-2 text-sm text-pine">
             <span className="uppercase tracking-[0.2em]">Stock Qty</span>
             <input
               name="stock"
@@ -162,6 +197,16 @@ export default function EditProductClient({ productId }) {
               className="rounded-2xl border border-mist bg-white/80 px-4 py-3"
             />
             <span className="text-xs text-pine">Used when no variants are added.</span>
+          </label>
+          <label className="flex items-center gap-3 text-sm text-pine">
+            <input
+              type="checkbox"
+              name="isFeatured"
+              checked={form.isFeatured}
+              onChange={handleChange}
+              className="h-4 w-4 accent-rose"
+            />
+            <span className="uppercase tracking-[0.2em]">Feature on dashboard</span>
           </label>
           <label className="flex flex-col gap-2 text-sm text-pine">
             <span className="uppercase tracking-[0.2em]">Status</span>

@@ -1,13 +1,14 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../config/database.js";
+import { applyDiscount } from "../utils/discount.js";
 
 const LOW_STOCK_THRESHOLD = 10;
 
 /**
  * Creates an order without committing stock until delivery.
  */
-export async function createOrder(payload) {
-  const { customerName, customerPhone, address, city, notes, paymentMethod, items } = payload;
+export async function createOrder(payload, userId = null) {
+  const { customerName, customerPhone, customerEmail, address, city, notes, paymentMethod, items, addressId } = payload;
 
   const productIds = [...new Set(items.map((item) => item.productId))];
   const variantIds = [...new Set(items.map((item) => item.variantId).filter(Boolean))];
@@ -66,27 +67,48 @@ export async function createOrder(payload) {
       }
     }
 
-    const lineTotal = new Prisma.Decimal(price).times(item.quantity);
+    const discountedPrice = applyDiscount(price, product.discountType, product.discountValue);
+    const lineTotal = new Prisma.Decimal(discountedPrice).times(item.quantity);
     totalAmount = totalAmount.plus(lineTotal);
 
     return {
       productId: product.id,
       variantId: variant ? variant.id : null,
       quantity: item.quantity,
-      price
+      price: discountedPrice
     };
   });
 
   const orderNumber = `RUP-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
 
   return prisma.$transaction(async (tx) => {
+    let orderUser = null;
+    if (userId) {
+      orderUser = await tx.user.findUnique({ where: { id: userId } });
+    }
+
+    let addressRef = null;
+    if (userId && addressId) {
+      addressRef = await tx.address.findFirst({
+        where: { id: addressId, userId }
+      });
+      if (!addressRef) {
+        const error = new Error("Selected address was not found.");
+        error.status = 404;
+        throw error;
+      }
+    }
+
     const order = await tx.order.create({
       data: {
         orderNumber,
+        userId,
+        addressId: addressRef ? addressRef.id : null,
+        customerEmail: orderUser?.email || customerEmail || null,
         customerName,
         customerPhone,
-        address,
-        city,
+        address: addressRef ? addressRef.addressLine : address,
+        city: addressRef ? addressRef.city : city,
         notes: notes || null,
         paymentMethod: paymentMethod || "cod",
         totalAmount,
@@ -96,6 +118,7 @@ export async function createOrder(payload) {
         }
       },
       include: {
+        user: true,
         items: {
           include: {
             product: true,
@@ -129,6 +152,8 @@ export async function listOrders({ page = 1, limit = 20, status, q }) {
     prisma.order.findMany({
       where,
       include: {
+        user: true,
+        addressRef: true,
         items: {
           include: {
             product: true,
@@ -151,6 +176,8 @@ export async function getOrderById(id) {
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
+      user: true,
+      addressRef: true,
       items: {
         include: {
           product: true,
@@ -162,6 +189,47 @@ export async function getOrderById(id) {
 
   if (!order) {
     const error = new Error("Order not found");
+    error.status = 404;
+    throw error;
+  }
+
+  return order;
+}
+
+export async function listOrdersForCustomer(userId) {
+  return prisma.order.findMany({
+    where: { userId },
+    include: {
+      addressRef: true,
+      items: {
+        include: {
+          product: true,
+          variant: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+export async function trackOrder(orderNumber, customerPhone) {
+  const order = await prisma.order.findFirst({
+    where: {
+      orderNumber,
+      customerPhone
+    },
+    include: {
+      items: {
+        include: {
+          product: true,
+          variant: true
+        }
+      }
+    }
+  });
+
+  if (!order) {
+    const error = new Error("Order not found. Check the order number and phone.");
     error.status = 404;
     throw error;
   }
@@ -265,6 +333,15 @@ export async function updateOrderStatus(id, status, cancelReason) {
         ...(status === "cancelled" && order.stockCommitted ? { stockCommitted: false } : {}),
         ...(status === "returned" && order.stockCommitted ? { stockCommitted: false } : {}),
         ...(status === "cancelled" ? { cancelReason: cancelReason || null } : { cancelReason: null })
+      },
+      include: {
+        user: true,
+        items: {
+          include: {
+            product: true,
+            variant: true
+          }
+        }
       }
     });
 

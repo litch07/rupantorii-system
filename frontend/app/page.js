@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductGrid from "../components/products/ProductGrid";
+import HeroActions from "../components/home/HeroActions";
 import { getServerApiUrl } from "../lib/helpers";
 
 export const metadata = {
@@ -35,10 +36,7 @@ export default async function HomePage() {
                 Explore handcrafted jewelry inspired by Bengali heritage. Shop curated collections with
                 variants, artisan details, and low-stock alerts for limited pieces.
               </p>
-              <div className="flex flex-wrap gap-4">
-                <Link href="/products" className="btn-primary">Explore Collections</Link>
-                <Link href="/admin/login" className="btn-outline">Admin Portal</Link>
-              </div>
+              <HeroActions />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {["Artisan finish", "Warm rose gold", "Limited batches", "Local-first"].map((tag) => (

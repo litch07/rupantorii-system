@@ -1,6 +1,7 @@
 import { body, param, query, validationResult } from "express-validator";
 
 const statusValues = ["active", "hidden", "out_of_stock"];
+const sortValues = ["newest", "price_asc", "price_desc", "top_rated"];
 const orderStatusValues = ["pending", "confirmed", "shipped", "delivered", "cancelled", "returned"];
 
 export const validatePagination = [
@@ -8,7 +9,13 @@ export const validatePagination = [
   query("limit").optional().isInt({ min: 1, max: 100 }).toInt(),
   query("q").optional().trim().escape(),
   query("minPrice").optional().isFloat({ min: 0 }).toFloat(),
-  query("maxPrice").optional().isFloat({ min: 0 }).toFloat()
+  query("maxPrice").optional().isFloat({ min: 0 }).toFloat(),
+  query("sort").optional().isIn(sortValues)
+];
+
+export const validateTrackOrder = [
+  query("orderNumber").isString().trim().escape().notEmpty(),
+  query("phone").isString().trim().escape().notEmpty()
 ];
 
 export const validateIdParam = [
@@ -18,6 +25,27 @@ export const validateIdParam = [
 export const validateLogin = [
   body("email").isEmail().normalizeEmail(),
   body("password").isString().isLength({ min: 6 })
+];
+
+export const validateCustomerRegister = [
+  body("email").isEmail().normalizeEmail(),
+  body("password").isString().isLength({ min: 6 }),
+  body("name").isString().trim().escape().notEmpty(),
+  body("phone").isString().trim().escape().notEmpty(),
+  body("addressLine").isString().trim().escape().notEmpty(),
+  body("city").isString().trim().escape().notEmpty(),
+  body("postalCode").optional({ nullable: true }).isString().trim().escape(),
+  body("label").optional({ nullable: true }).isString().trim().escape()
+];
+
+export const validateProfileUpdate = [
+  body("name").optional({ nullable: true }).isString().trim().escape(),
+  body("phone").optional({ nullable: true }).isString().trim().escape()
+];
+
+export const validatePasswordChange = [
+  body("currentPassword").isString().isLength({ min: 6 }),
+  body("newPassword").isString().isLength({ min: 6 })
 ];
 
 export const validateCategoryCreate = [
@@ -39,6 +67,9 @@ export const validateProductCreate = [
   body("categoryId").isString().trim().escape().notEmpty(),
   body("brand").optional({ nullable: true }).isString().trim().escape(),
   body("basePrice").isFloat({ min: 0 }).toFloat(),
+  body("discountType").optional({ nullable: true }).isIn(["percentage", "amount"]),
+  body("discountValue").optional({ nullable: true }).isFloat({ min: 0 }).toFloat(),
+  body("isFeatured").optional().isBoolean().toBoolean(),
   body("stock").optional().isInt({ min: 0 }).toInt(),
   body("status").optional().isIn(statusValues),
   body("variants").optional().isArray(),
@@ -57,6 +88,9 @@ export const validateProductUpdate = [
   body("categoryId").optional().isString().trim().escape(),
   body("brand").optional({ nullable: true }).isString().trim().escape(),
   body("basePrice").optional().isFloat({ min: 0 }).toFloat(),
+  body("discountType").optional({ nullable: true }).isIn(["percentage", "amount"]),
+  body("discountValue").optional({ nullable: true }).isFloat({ min: 0 }).toFloat(),
+  body("isFeatured").optional().isBoolean().toBoolean(),
   body("stock").optional().isInt({ min: 0 }).toInt(),
   body("status").optional().isIn(statusValues),
   body("variants").optional().isArray(),
@@ -73,6 +107,8 @@ export const validateOrderCreate = [
   body("customerPhone").isString().trim().matches(/^[0-9+\-\s]{6,20}$/),
   body("address").isString().trim().escape().notEmpty(),
   body("city").isString().trim().escape().notEmpty(),
+  body("addressId").optional({ nullable: true }).isString().trim().escape(),
+  body("customerEmail").optional({ nullable: true }).isEmail().normalizeEmail(),
   body("notes").optional({ nullable: true }).isString().trim().escape(),
   body("paymentMethod").optional().isIn(["cod"]),
   body("items").isArray({ min: 1 }),
@@ -84,6 +120,46 @@ export const validateOrderCreate = [
 export const validateOrderStatus = [
   body("status").isIn(orderStatusValues),
   body("cancelReason").optional({ nullable: true }).isString().trim().escape()
+];
+
+export const validateAddressCreate = [
+  body("label").optional({ nullable: true }).isString().trim().escape(),
+  body("recipientName").isString().trim().escape().notEmpty(),
+  body("phone").isString().trim().escape().notEmpty(),
+  body("addressLine").isString().trim().escape().notEmpty(),
+  body("city").isString().trim().escape().notEmpty(),
+  body("postalCode").optional({ nullable: true }).isString().trim().escape(),
+  body("notes").optional({ nullable: true }).isString().trim().escape(),
+  body("isDefault").optional().isBoolean().toBoolean()
+];
+
+export const validateAddressUpdate = [
+  body("label").optional({ nullable: true }).isString().trim().escape(),
+  body("recipientName").optional().isString().trim().escape(),
+  body("phone").optional().isString().trim().escape(),
+  body("addressLine").optional().isString().trim().escape(),
+  body("city").optional().isString().trim().escape(),
+  body("postalCode").optional({ nullable: true }).isString().trim().escape(),
+  body("notes").optional({ nullable: true }).isString().trim().escape(),
+  body("isDefault").optional().isBoolean().toBoolean()
+];
+
+export const validateReviewCreate = [
+  body("rating").isInt({ min: 1, max: 5 }).toInt(),
+  body("title").optional({ nullable: true }).isString().trim().escape(),
+  body("comment").isString().trim().escape().notEmpty()
+];
+
+export const validateReviewReply = [
+  body("reply").isString().trim().escape().notEmpty()
+];
+
+export const validateQuestionCreate = [
+  body("question").isString().trim().escape().notEmpty()
+];
+
+export const validateQuestionAnswer = [
+  body("answer").isString().trim().escape().notEmpty()
 ];
 
 export function handleValidation(req, res, next) {

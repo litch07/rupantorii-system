@@ -10,12 +10,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String            @id @default(uuid())
+  email     String            @unique
   password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      String            @default("customer")
+  name      String?
+  phone     String?
+  avatarUrl String?
+  addresses Address[]
+  orders    Order[]
+  reviews   ProductReview[]
+  questions ProductQuestion[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 }
 
 model Category {
@@ -39,10 +46,15 @@ model Product {
   category    Category         @relation(fields: [categoryId], references: [id])
   brand       String?
   basePrice   Decimal          @db.Decimal(10, 2)
+  discountType String?
+  discountValue Decimal?       @db.Decimal(10, 2)
+  isFeatured  Boolean          @default(false)
   status      String           @default("active")
   stock       Int              @default(0)
   variants    ProductVariant[]
   images      ProductImage[]
+  reviews     ProductReview[]
+  questions   ProductQuestion[]
   orderItems  OrderItem[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -85,6 +97,11 @@ model ProductImage {
 model Order {
   id            String      @id @default(uuid())
   orderNumber   String      @unique
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  addressId     String?
+  addressRef    Address?    @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  customerEmail String?
   customerName  String
   customerPhone String
   address       String
@@ -101,6 +118,26 @@ model Order {
 
   @@index([status])
   @@index([orderNumber])
+  @@index([userId])
+}
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  label         String?
+  recipientName String
+  phone         String
+  addressLine   String
+  city          String
+  postalCode    String?
+  notes         String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model OrderItem {
@@ -115,4 +152,40 @@ model OrderItem {
   price     Decimal         @db.Decimal(10, 2)
 
   @@index([orderId])
+}
+
+model ProductReview {
+  id               String   @id @default(uuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating           Int
+  title            String?
+  comment          String
+  reply            String?
+  repliedAt        DateTime?
+  verifiedPurchase Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@unique([productId, userId])
+}
+
+model ProductQuestion {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   String
+  answer     String?
+  answeredAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
 }

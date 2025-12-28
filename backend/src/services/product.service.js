@@ -2,9 +2,17 @@ import fs from "fs";
 import path from "path";
 import prisma from "../config/database.js";
 import { slugify } from "../utils/slug.js";
+import { applyDiscount, getDiscountPercent, normalizeDiscount } from "../utils/discount.js";
 
 const uploadDir = process.env.UPLOAD_DIR || "./uploads";
 const resolvedUploadDir = path.resolve(process.cwd(), uploadDir);
+
+const SORT_OPTIONS = {
+  newest: [{ createdAt: "desc" }],
+  price_asc: [{ basePrice: "asc" }],
+  price_desc: [{ basePrice: "desc" }],
+  top_rated: [{ reviews: { _avg: { rating: "desc" } } }, { createdAt: "desc" }]
+};
 
 function buildProductWhere({ categorySlug, q, minPrice, maxPrice, status, admin }) {
   const where = {};
@@ -37,9 +45,20 @@ function buildProductWhere({ categorySlug, q, minPrice, maxPrice, status, admin 
   return where;
 }
 
-export async function listProducts({ page = 1, limit = 20, categorySlug, q, minPrice, maxPrice, status, admin = false }) {
+export async function listProducts({
+  page = 1,
+  limit = 20,
+  categorySlug,
+  q,
+  minPrice,
+  maxPrice,
+  status,
+  sort = "newest",
+  admin = false
+}) {
   const skip = (page - 1) * limit;
   const where = buildProductWhere({ categorySlug, q, minPrice, maxPrice, status, admin });
+  const orderBy = SORT_OPTIONS[sort] || SORT_OPTIONS.newest;
 
   const [total, data] = await Promise.all([
     prisma.product.count({ where }),
@@ -50,15 +69,47 @@ export async function listProducts({ page = 1, limit = 20, categorySlug, q, minP
         images: true,
         variants: true
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: limit
     })
   ]);
 
+  const productIds = data.map((product) => product.id);
+  const ratingStats = productIds.length
+    ? await prisma.productReview.groupBy({
+        by: ["productId"],
+        where: { productId: { in: productIds } },
+        _avg: { rating: true },
+        _count: { _all: true }
+      })
+    : [];
+
+  const ratingMap = new Map(
+    ratingStats.map((row) => [
+      row.productId,
+      { rating: Number(row._avg.rating || 0), count: row._count._all || 0 }
+    ])
+  );
+
   const totalPages = Math.ceil(total / limit) || 1;
 
-  return { data, total, page, totalPages };
+  return {
+    data: data.map((product) => {
+      const stats = ratingMap.get(product.id) || { rating: 0, count: 0 };
+      const discountedPrice = applyDiscount(product.basePrice, product.discountType, product.discountValue);
+      return {
+        ...product,
+        rating: stats.rating,
+        reviewCount: stats.count,
+        discountedPrice,
+        discountPercent: getDiscountPercent(product.basePrice, product.discountType, product.discountValue)
+      };
+    }),
+    total,
+    page,
+    totalPages
+  };
 }
 
 export async function getProductById(idOrSlug, admin = false) {
@@ -81,11 +132,24 @@ export async function getProductById(idOrSlug, admin = false) {
     throw error;
   }
 
-  return product;
+  const ratingStats = await prisma.productReview.aggregate({
+    where: { productId: product.id },
+    _avg: { rating: true },
+    _count: { _all: true }
+  });
+
+  return {
+    ...product,
+    rating: Number(ratingStats._avg.rating || 0),
+    reviewCount: ratingStats._count._all || 0,
+    discountedPrice: applyDiscount(product.basePrice, product.discountType, product.discountValue),
+    discountPercent: getDiscountPercent(product.basePrice, product.discountType, product.discountValue)
+  };
 }
 
 export async function createProduct(payload) {
   const slug = payload.slug ? payload.slug : slugify(payload.name);
+  const discount = normalizeDiscount(payload.discountType, payload.discountValue);
 
   return prisma.product.create({
     data: {
@@ -95,6 +159,9 @@ export async function createProduct(payload) {
       categoryId: payload.categoryId,
       brand: payload.brand || null,
       basePrice: payload.basePrice,
+      discountType: discount.discountType,
+      discountValue: discount.discountValue,
+      isFeatured: Boolean(payload.isFeatured),
       stock: payload.stock ?? 0,
       status: payload.status || "active",
       variants: payload.variants?.length ? { create: payload.variants } : undefined
@@ -108,6 +175,11 @@ export async function createProduct(payload) {
 }
 
 export async function updateProduct(id, payload) {
+  const applyDiscountUpdate = payload.discountType !== undefined || payload.discountValue !== undefined;
+  const discount = applyDiscountUpdate
+    ? normalizeDiscount(payload.discountType, payload.discountValue)
+    : null;
+
   const updateData = {
     ...(payload.name ? { name: payload.name } : {}),
     ...(payload.slug ? { slug: payload.slug } : {}),
@@ -116,7 +188,11 @@ export async function updateProduct(id, payload) {
     ...(payload.brand !== undefined ? { brand: payload.brand } : {}),
     ...(payload.basePrice !== undefined ? { basePrice: payload.basePrice } : {}),
     ...(payload.stock !== undefined ? { stock: payload.stock } : {}),
-    ...(payload.status ? { status: payload.status } : {})
+    ...(payload.status ? { status: payload.status } : {}),
+    ...(payload.isFeatured !== undefined ? { isFeatured: Boolean(payload.isFeatured) } : {}),
+    ...(applyDiscountUpdate
+      ? { discountType: discount.discountType, discountValue: discount.discountValue }
+      : {})
   };
 
   if (payload.variants) {

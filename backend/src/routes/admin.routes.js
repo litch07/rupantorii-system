@@ -16,26 +16,33 @@ import {
 } from "../controllers/product.controller.js";
 import {
   getOrderHandler,
+  getOrderReceiptHandler,
   listAlertsHandler,
   listOrdersHandler,
   updateOrderStatusHandler
 } from "../controllers/order.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { answerQuestionHandler, listQuestionsAdmin } from "../controllers/question.controller.js";
+import { listReviewsAdmin, replyReviewHandler } from "../controllers/review.controller.js";
+import { exportSalesReportHandler, getSalesReportHandler } from "../controllers/report.controller.js";
+import { getDashboardInsightsHandler } from "../controllers/dashboard.controller.js";
+import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import {
   handleValidation,
   validateCategoryCreate,
   validateCategoryUpdate,
   validateIdParam,
+  validateQuestionAnswer,
   validateOrderStatus,
   validatePagination,
   validateProductCreate,
-  validateProductUpdate
+  validateProductUpdate,
+  validateReviewReply
 } from "../utils/validators.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireAdmin);
 
 router.get("/products", validatePagination, handleValidation, listAdminProducts);
 router.post("/products", validateProductCreate, handleValidation, createProductHandler);
@@ -52,8 +59,19 @@ router.delete("/categories/:id", validateIdParam, handleValidation, deleteCatego
 
 router.get("/orders", validatePagination, handleValidation, listOrdersHandler);
 router.get("/orders/:id", validateIdParam, handleValidation, getOrderHandler);
+router.get("/orders/:id/receipt", validateIdParam, handleValidation, getOrderReceiptHandler);
 router.patch("/orders/:id/status", validateIdParam, validateOrderStatus, handleValidation, updateOrderStatusHandler);
 
 router.get("/alerts", listAlertsHandler);
+router.get("/dashboard/insights", getDashboardInsightsHandler);
+
+router.get("/reviews", listReviewsAdmin);
+router.patch("/reviews/:id/reply", validateIdParam, validateReviewReply, handleValidation, replyReviewHandler);
+
+router.get("/questions", listQuestionsAdmin);
+router.patch("/questions/:id/answer", validateIdParam, validateQuestionAnswer, handleValidation, answerQuestionHandler);
+
+router.get("/reports/sales", getSalesReportHandler);
+router.get("/reports/sales/export", exportSalesReportHandler);
 
 export default router;

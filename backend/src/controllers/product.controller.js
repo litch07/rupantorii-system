@@ -24,6 +24,7 @@ export async function listPublicProducts(req, res, next) {
       q: req.query.q,
       minPrice: req.query.minPrice,
       maxPrice: req.query.maxPrice,
+      sort: req.query.sort,
       admin: false
     });
 
@@ -44,6 +45,7 @@ export async function listAdminProducts(req, res, next) {
       minPrice: req.query.minPrice,
       maxPrice: req.query.maxPrice,
       status: req.query.status,
+      sort: req.query.sort,
       admin: true
     });
 

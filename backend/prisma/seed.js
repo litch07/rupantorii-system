@@ -28,6 +28,9 @@ const products = [
     description: "Warm rose-gold bangles crafted for everyday radiance.",
     brand: "Rupantorii",
     basePrice: 2800,
+    discountType: "percentage",
+    discountValue: 15,
+    isFeatured: true,
     status: "out_of_stock",
     categorySlug: "bangles",
     variants: [
@@ -45,6 +48,9 @@ const products = [
     description: "A delicate pendant necklace inspired by lotus petals.",
     brand: "Rupantorii",
     basePrice: 4200,
+    discountType: "amount",
+    discountValue: 400,
+    isFeatured: true,
     status: "active",
     categorySlug: "necklaces",
     variants: [
@@ -62,6 +68,7 @@ const products = [
     description: "Pearl drop earrings with a midnight enamel finish.",
     brand: "Rupantorii",
     basePrice: 1900,
+    isFeatured: true,
     status: "active",
     categorySlug: "earrings",
     variants: [
@@ -113,6 +120,9 @@ async function main() {
         description: product.description,
         brand: product.brand,
         basePrice: product.basePrice,
+        discountType: product.discountType || null,
+        discountValue: product.discountValue || null,
+        isFeatured: Boolean(product.isFeatured),
         status: product.status,
         categoryId: category.id,
         variants: {
@@ -130,6 +140,9 @@ async function main() {
         description: product.description,
         brand: product.brand,
         basePrice: product.basePrice,
+        discountType: product.discountType || null,
+        discountValue: product.discountValue || null,
+        isFeatured: Boolean(product.isFeatured),
         status: product.status,
         categoryId: category.id,
         variants: { create: product.variants },

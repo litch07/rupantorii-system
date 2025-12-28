@@ -23,6 +23,9 @@ async function getProducts(searchParams) {
   if (searchParams?.q) params.set("q", searchParams.q);
   if (searchParams?.category) params.set("category", searchParams.category);
   if (searchParams?.page) params.set("page", searchParams.page);
+  if (searchParams?.sort) params.set("sort", searchParams.sort);
+  if (searchParams?.minPrice) params.set("minPrice", searchParams.minPrice);
+  if (searchParams?.maxPrice) params.set("maxPrice", searchParams.maxPrice);
 
   const res = await fetch(`${apiUrl}/api/products?${params.toString()}`, { cache: "no-store" });
   if (!res.ok) {
