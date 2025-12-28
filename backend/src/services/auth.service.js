@@ -30,3 +30,30 @@ export async function loginAdmin(email, password) {
     }
   };
 }
+
+export async function updateAdminPassword(userId, currentPassword, newPassword) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user || user.role !== "admin") {
+    const error = new Error("Admin account not found");
+    error.status = 403;
+    throw error;
+  }
+
+  const match = await bcrypt.compare(currentPassword, user.password);
+
+  if (!match) {
+    const error = new Error("Current password is incorrect");
+    error.status = 401;
+    throw error;
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword }
+  });
+
+  return { success: true };
+}

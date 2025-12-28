@@ -126,6 +126,23 @@ npm run dev
 
 ---
 
+## Deployment (Vercel + Render + Supabase)
+
+Recommended low-cost stack:
+- **Database:** Supabase or Neon (PostgreSQL)
+- **Backend:** Render (Node.js service)
+- **Frontend:** Vercel (Next.js)
+
+High-level flow:
+1. Create the PostgreSQL database and copy the `DATABASE_URL`.
+2. Deploy the backend and set production env vars (including `DATABASE_URL`).
+3. Deploy the frontend and set `NEXT_PUBLIC_API_URL` to the backend URL.
+4. Test end-to-end flows (catalog, checkout, admin).
+
+See the deployment guide in the project instructions or open an issue if you need help.
+
+---
+
 ## Environment Variables
 
 ### Backend (`backend/.env`)
@@ -180,6 +197,7 @@ API_URL=http://localhost:4000
 
 ### Admin
 - `POST /api/admin/auth/login`
+- `PUT /api/admin/auth/password`
 - `GET /api/admin/products`
 - `POST /api/admin/products`
 - `PATCH /api/admin/orders/:id/status`
